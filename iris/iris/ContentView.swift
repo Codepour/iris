@@ -12,6 +12,7 @@ struct ContentView: View {
     enum Tab: String, CaseIterable, Identifiable {
         case data = "Data View"
         case variables = "Variable View"
+        case output = "Output View"
         
         var id: String { self.rawValue }
     }
@@ -24,79 +25,27 @@ struct ContentView: View {
     @State private var sidebarSelection: String? = "Model Building"
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     
+    // Computed binding for showing config popups
+    private var showConfigPopup: Binding<Bool> {
+        Binding(
+            get: { activeTool != .none },
+            set: { if !$0 { activeTool = .none } }
+        )
+    }
+    
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            Group {
-                switch activeTool {
-                case .none:
-                    List(selection: $sidebarSelection) {
-                        Section("Model Building") {
-                            Text("Coming Soon")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .listStyle(SidebarListStyle())
-                    .navigationTitle("Iris")
-                case .correlation:
-                    CorrelationConfigView(
-                        dataFrame: dataFrame,
-                        onRun: {
-                            // Ensure Inspector is visible
-                            columnVisibility = .all
-                        },
-                        onCancel: {
-                            activeTool = .none
-                        }
-                    )
-                    .navigationTitle("Correlation")
-                case .distribution:
-                    DistributionConfigView(
-                        dataFrame: dataFrame,
-                        onRun: {
-                            columnVisibility = .all
-                        },
-                        onCancel: {
-                            activeTool = .none
-                        }
-                    )
-                    .navigationTitle("Distribution")
-                case .partialCorrelation:
-                    PartialCorrelationConfigView(
-                        dataFrame: dataFrame,
-                        onRun: {
-                            columnVisibility = .all
-                        },
-                        onCancel: {
-                            activeTool = .none
-                        }
-                    )
-                    .navigationTitle("Partial Correlation")
-                case .distances:
-                    DistancesConfigView(
-                        dataFrame: dataFrame,
-                        onRun: {
-                            columnVisibility = .all
-                        },
-                        onCancel: {
-                            activeTool = .none
-                        }
-                    )
-                    .navigationTitle("Distances")
-                case .linearRegression:
-                    LinearRegressionConfigView(
-                        dataFrame: dataFrame,
-                        onRun: {
-                            columnVisibility = .all
-                        },
-                        onCancel: {
-                            activeTool = .none
-                        }
-                    )
-                    .navigationTitle("Linear Regression")
+            // Simplified sidebar - no config views here anymore
+            List(selection: $sidebarSelection) {
+                Section("Model Building") {
+                    Text("Coming Soon")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
-        } content: {
+            .listStyle(SidebarListStyle())
+            .navigationTitle("Iris")
+        } detail: {
             Group {
                 switch selectedTab {
                 case .data:
@@ -104,6 +53,8 @@ struct ContentView: View {
                 case .variables:
                     Text("Variable View Placeholder")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .output:
+                    OutputCollectionView(dataFrame: dataFrame)
                 }
             }
             .toolbar {
@@ -114,13 +65,11 @@ struct ContentView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 200)
+                    .frame(width: 300)
                 }
             }
-        } detail: {
-            InspectorView(dataFrame: dataFrame)
-                .navigationSplitViewColumnWidth(min: 300, ideal: 400)
         }
+        // File importer
         .fileImporter(
             isPresented: $isImporting,
             allowedContentTypes: [.commaSeparatedText],
@@ -129,7 +78,6 @@ struct ContentView: View {
             switch result {
             case .success(let urls):
                 if let url = urls.first {
-                    // Access security scoped resource
                     if url.startAccessingSecurityScopedResource() {
                         defer { url.stopAccessingSecurityScopedResource() }
                         dataFrame.loadCSV(from: url)
@@ -137,6 +85,177 @@ struct ContentView: View {
                 }
             case .failure(let error):
                 print("Import failed: \(error.localizedDescription)")
+            }
+        }
+        // Config popup sheets
+        .sheet(isPresented: showConfigPopup) {
+            configPopupContent
+        }
+        // Result popup sheet
+        .sheet(isPresented: $dataFrame.showResultPopup) {
+            resultPopupContent
+        }
+    }
+    
+    // MARK: - Config Popup Content
+    
+    @ViewBuilder
+    private var configPopupContent: some View {
+        switch activeTool {
+        case .none:
+            EmptyView()
+        case .correlation:
+            CorrelationConfigView(
+                dataFrame: dataFrame,
+                onRun: {
+                    activeTool = .none
+                },
+                onCancel: {
+                    activeTool = .none
+                }
+            )
+        case .distribution:
+            DistributionConfigView(
+                dataFrame: dataFrame,
+                onRun: {
+                    activeTool = .none
+                },
+                onCancel: {
+                    activeTool = .none
+                }
+            )
+        case .partialCorrelation:
+            PartialCorrelationConfigView(
+                dataFrame: dataFrame,
+                onRun: {
+                    activeTool = .none
+                },
+                onCancel: {
+                    activeTool = .none
+                }
+            )
+        case .distances:
+            DistancesConfigView(
+                dataFrame: dataFrame,
+                onRun: {
+                    activeTool = .none
+                },
+                onCancel: {
+                    activeTool = .none
+                }
+            )
+        case .linearRegression:
+            LinearRegressionConfigView(
+                dataFrame: dataFrame,
+                onRun: {
+                    activeTool = .none
+                },
+                onCancel: {
+                    activeTool = .none
+                }
+            )
+        case .computeVariable:
+            ComputeVariableView(
+                dataFrame: dataFrame,
+                isPresented: Binding(
+                    get: { activeTool == .computeVariable },
+                    set: { if !$0 { activeTool = .none } }
+                )
+            )
+        case .chartBuilder:
+            ChartBuilderConfigView(
+                dataFrame: dataFrame,
+                onRun: {
+                    activeTool = .none
+                },
+                onCancel: {
+                    activeTool = .none
+                }
+            )
+        }
+    }
+    
+    // MARK: - Result Popup Content
+    
+    @ViewBuilder
+    private var resultPopupContent: some View {
+        if let resultType = dataFrame.pendingResultType {
+            ResultPopupView(
+                title: resultTitle(for: resultType),
+                content: {
+                    resultContent(for: resultType)
+                },
+                onAddToOutput: {
+                    dataFrame.addPendingResultToOutput()
+                },
+                onDismiss: {
+                    dataFrame.clearPendingResults()
+                }
+            )
+        } else {
+            EmptyView()
+        }
+    }
+    
+    private func resultTitle(for type: OutputItemType) -> String {
+        switch type {
+        case .descriptiveStatistics: return "Descriptive Statistics"
+        case .correlation: return "Bivariate Correlations"
+        case .partialCorrelation: return "Partial Correlations"
+        case .distribution: return "Distribution Analysis"
+        case .distances: return "Distance Matrix"
+        case .linearRegression: return "Linear Regression"
+        case .scatterPlot: return "Scatter Plot"
+        }
+    }
+    
+    @ViewBuilder
+    private func resultContent(for type: OutputItemType) -> some View {
+        switch type {
+        case .descriptiveStatistics:
+            if let stats = dataFrame.pendingDescriptiveStatistics {
+                APATableView(data: DescriptiveStatsTable(stats: stats))
+                    .frame(width: OutputSizing.standardTableWidth)
+            }
+        case .correlation:
+            if let result = dataFrame.pendingCorrelationResult {
+                CorrelationResultView(correlation: result)
+                    .frame(width: OutputSizing.standardTableWidth)
+            }
+        case .partialCorrelation:
+            if let result = dataFrame.pendingPartialCorrelationResult {
+                PartialCorrelationResultView(partialResult: result)
+                    .frame(width: OutputSizing.standardTableWidth)
+            }
+        case .distribution:
+            if let results = dataFrame.pendingDistributionResults {
+                DistributionAnalysisView(distributions: results)
+                    .frame(width: OutputSizing.standardTableWidth)
+            }
+        case .distances:
+            if let matrix = dataFrame.pendingDistanceResult, let metric = dataFrame.pendingDistanceMetric {
+                DistanceResultView(matrix: matrix, metric: metric)
+                    .frame(width: OutputSizing.standardTableWidth)
+            }
+        case .linearRegression:
+            if let result = dataFrame.pendingLinearRegressionResult {
+                LinearRegressionResultView(
+                    regression: result,
+                    dependent: dataFrame.pendingLinearRegressionDependent ?? "",
+                    independents: dataFrame.pendingLinearRegressionIndependents ?? [],
+                    options: dataFrame.pendingLinearRegressionOptions
+                )
+                .frame(width: OutputSizing.standardTableWidth)
+            }
+        case .scatterPlot:
+            if let data = dataFrame.pendingScatterPlotData {
+                ScatterPlotView(
+                    data: data,
+                    title: dataFrame.pendingScatterPlotTitle,
+                    xAxisLabel: dataFrame.pendingScatterPlotXLabel,
+                    yAxisLabel: dataFrame.pendingScatterPlotYLabel
+                )
+                .frame(width: OutputSizing.standardTableWidth, height: 400)
             }
         }
     }

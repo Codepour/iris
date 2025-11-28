@@ -15,75 +15,81 @@ struct LinearRegressionConfigView: View {
     @State private var showResiduals: Bool = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 0) {
+            // Header
             HStack {
                 Text("Linear Regression")
                     .font(.headline)
                 Spacer()
             }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
             
-            // Dependent Variable (Single Selection)
-            VStack(alignment: .leading) {
-                Text("Dependent")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                List(dataFrame.headers, id: \.self) { header in
-                    HStack {
-                        Text(header)
-                        Spacer()
-                        if dependentVariable == header {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.blue)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        dependentVariable = header
-                        // Remove from independents if present
-                        if independentVariables.contains(header) {
-                            independentVariables.remove(header)
-                        }
-                    }
-                }
-                .frame(minHeight: 100)
-                .border(Color.gray.opacity(0.2))
-            }
+            Divider()
             
-            // Independent Variables (Multi Selection)
-            VStack(alignment: .leading) {
-                Text("Independent(s)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                List(dataFrame.headers, id: \.self) { header in
-                    HStack {
-                        Text(header)
-                        Spacer()
-                        if independentVariables.contains(header) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if independentVariables.contains(header) {
-                            independentVariables.remove(header)
-                        } else {
-                            independentVariables.insert(header)
-                            // Remove from dependent if present
-                            if dependentVariable == header {
-                                dependentVariable = nil
-                            }
-                        }
-                    }
-                }
-                .frame(minHeight: 150)
-                .border(Color.gray.opacity(0.2))
-            }
-            
+            // Content
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    // Dependent Variable (Single Selection)
+                    VStack(alignment: .leading) {
+                        Text("Dependent")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        List(dataFrame.headers, id: \.self) { header in
+                            HStack {
+                                Text(header)
+                                Spacer()
+                                if dependentVariable == header {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                dependentVariable = header
+                                // Remove from independents if present
+                                if independentVariables.contains(header) {
+                                    independentVariables.remove(header)
+                                }
+                            }
+                        }
+                        .frame(minHeight: 100)
+                        .border(Color.gray.opacity(0.2))
+                    }
+                    
+                    // Independent Variables (Multi Selection)
+                    VStack(alignment: .leading) {
+                        Text("Independent(s)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        List(dataFrame.headers, id: \.self) { header in
+                            HStack {
+                                Text(header)
+                                Spacer()
+                                if independentVariables.contains(header) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if independentVariables.contains(header) {
+                                    independentVariables.remove(header)
+                                } else {
+                                    independentVariables.insert(header)
+                                    // Remove from dependent if present
+                                    if dependentVariable == header {
+                                        dependentVariable = nil
+                                    }
+                                }
+                            }
+                        }
+                        .frame(minHeight: 150)
+                        .border(Color.gray.opacity(0.2))
+                    }
+                    
                     // Statistics
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Statistics")
@@ -103,10 +109,12 @@ struct LinearRegressionConfigView: View {
                     }
                     .disabled(true) // Future implementation
                 }
+                .padding()
             }
             
-            Spacer()
+            Divider()
             
+            // Footer
             HStack {
                 Button("Cancel", action: onCancel)
                     .keyboardShortcut(.cancelAction)
@@ -121,9 +129,11 @@ struct LinearRegressionConfigView: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(dependentVariable == nil || independentVariables.isEmpty)
             }
-            .padding(.top)
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
         }
-        .padding()
+        .frame(width: OutputSizing.configPopupWidth)
+        .frame(minHeight: OutputSizing.configPopupMinHeight, maxHeight: OutputSizing.configPopupMaxHeight)
     }
     
     private func runAnalysis() {

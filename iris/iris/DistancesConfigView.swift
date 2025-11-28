@@ -9,58 +9,70 @@ struct DistancesConfigView: View {
     @State private var distanceMetric: StatisticsEngine.DistanceMetric = .euclidean
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 0) {
+            // Header
             HStack {
                 Text("Distances")
                     .font(.headline)
                 Spacer()
             }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
             
-            // Variables List
-            VStack(alignment: .leading) {
-                Text("Variables")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                List(dataFrame.headers, id: \.self) { header in
-                    HStack {
-                        Text(header)
-                        Spacer()
-                        if selectedVariables.contains(header) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.blue)
+            Divider()
+            
+            // Content
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Variables List
+                    VStack(alignment: .leading) {
+                        Text("Variables")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        List(dataFrame.headers, id: \.self) { header in
+                            HStack {
+                                Text(header)
+                                Spacer()
+                                if selectedVariables.contains(header) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if selectedVariables.contains(header) {
+                                    selectedVariables.remove(header)
+                                } else {
+                                    selectedVariables.insert(header)
+                                }
+                            }
                         }
+                        .frame(minHeight: 150)
+                        .border(Color.gray.opacity(0.2))
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if selectedVariables.contains(header) {
-                            selectedVariables.remove(header)
-                        } else {
-                            selectedVariables.insert(header)
+                    
+                    // Options
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Measure")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        Picker("Metric", selection: $distanceMetric) {
+                            Text("Euclidean").tag(StatisticsEngine.DistanceMetric.euclidean)
+                            Text("Squared Euclidean").tag(StatisticsEngine.DistanceMetric.squaredEuclidean)
+                            Text("Manhattan").tag(StatisticsEngine.DistanceMetric.manhattan)
+                            Text("Chebyshev").tag(StatisticsEngine.DistanceMetric.chebyshev)
                         }
+                        .pickerStyle(.radioGroup)
                     }
                 }
-                .frame(minHeight: 150)
-                .border(Color.gray.opacity(0.2))
+                .padding()
             }
             
-            // Options
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Measure")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Picker("Metric", selection: $distanceMetric) {
-                    Text("Euclidean").tag(StatisticsEngine.DistanceMetric.euclidean)
-                    Text("Squared Euclidean").tag(StatisticsEngine.DistanceMetric.squaredEuclidean)
-                    Text("Manhattan").tag(StatisticsEngine.DistanceMetric.manhattan)
-                    Text("Chebyshev").tag(StatisticsEngine.DistanceMetric.chebyshev)
-                }
-                .pickerStyle(.radioGroup)
-            }
+            Divider()
             
-            Spacer()
-            
+            // Footer
             HStack {
                 Button("Cancel", action: onCancel)
                     .keyboardShortcut(.cancelAction)
@@ -75,9 +87,11 @@ struct DistancesConfigView: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(selectedVariables.count < 2)
             }
-            .padding(.top)
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
         }
-        .padding()
+        .frame(width: OutputSizing.configPopupWidth)
+        .frame(minHeight: OutputSizing.configPopupMinHeight, maxHeight: OutputSizing.configPopupMaxHeight)
     }
     
     private func runAnalysis() {

@@ -14,6 +14,8 @@ enum SidebarTool {
     case distribution
     case distances
     case linearRegression
+    case computeVariable
+    case chartBuilder
 }
 
 @main
@@ -36,6 +38,14 @@ struct irisApp: App {
                 
                 Button("Import Excel...") {
                     // Placeholder
+                }
+                
+                Divider()
+                
+                Menu("Transform") {
+                    Button("Compute Variable...") {
+                        activeTool = .computeVariable
+                    }
                 }
             }
             
@@ -70,7 +80,9 @@ struct irisApp: App {
             }
             
             CommandMenu("Visualize") {
-                Button("Chart Builder") {}
+                Button("Chart Builder...") {
+                    activeTool = .chartBuilder
+                }
             }
         }
     }

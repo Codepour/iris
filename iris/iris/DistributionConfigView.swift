@@ -19,43 +19,48 @@ struct DistributionConfigView: View {
     @State private var bins: Int = 10
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 0) {
+            // Header
             HStack {
                 Text("Distribution Analysis")
                     .font(.headline)
                 Spacer()
             }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
             
-            // Variables List
-            VStack(alignment: .leading) {
-                Text("Variables")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                List(dataFrame.headers, id: \.self) { header in
-                    HStack {
-                        Text(header)
-                        Spacer()
-                        if selectedVariables.contains(header) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.blue)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if selectedVariables.contains(header) {
-                            selectedVariables.remove(header)
-                        } else {
-                            selectedVariables.insert(header)
-                        }
-                    }
-                }
-                .frame(minHeight: 150)
-                .border(Color.gray.opacity(0.2))
-            }
+            Divider()
             
+            // Content
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    // Variables List
+                    VStack(alignment: .leading) {
+                        Text("Variables")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        List(dataFrame.headers, id: \.self) { header in
+                            HStack {
+                                Text(header)
+                                Spacer()
+                                if selectedVariables.contains(header) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if selectedVariables.contains(header) {
+                                    selectedVariables.remove(header)
+                                } else {
+                                    selectedVariables.insert(header)
+                                }
+                            }
+                        }
+                        .frame(minHeight: 150)
+                        .border(Color.gray.opacity(0.2))
+                    }
                     
                     // Percentiles
                     VStack(alignment: .leading, spacing: 8) {
@@ -94,10 +99,12 @@ struct DistributionConfigView: View {
                         }
                     }
                 }
+                .padding()
             }
             
-            Spacer()
+            Divider()
             
+            // Footer
             HStack {
                 Button("Cancel", action: onCancel)
                     .keyboardShortcut(.cancelAction)
@@ -112,9 +119,11 @@ struct DistributionConfigView: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(selectedVariables.isEmpty)
             }
-            .padding(.top)
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
         }
-        .padding()
+        .frame(width: OutputSizing.configPopupWidth)
+        .frame(minHeight: OutputSizing.configPopupMinHeight, maxHeight: OutputSizing.configPopupMaxHeight)
     }
     
     private func runAnalysis() {

@@ -50,6 +50,29 @@ class DataFrame: ObservableObject {
     @Published var selection: Selection = .none
     @Published var columnTypes: [MeasureType]
     
+    // MARK: - Output Collection
+    @Published var outputCollection = OutputCollection()
+    
+    // MARK: - Pending Results (for popup display before adding to output)
+    @Published var pendingCorrelationResult: StatisticsEngine.CorrelationResult?
+    @Published var pendingDistributionResults: [DistributionResult]?
+    @Published var pendingPartialCorrelationResult: StatisticsEngine.CorrelationResult?
+    @Published var pendingLinearRegressionResult: StatisticsEngine.LinearRegressionResult?
+    @Published var pendingLinearRegressionDependent: String?
+    @Published var pendingLinearRegressionIndependents: [String]?
+    @Published var pendingLinearRegressionOptions: LinearRegressionOptions?
+    @Published var pendingDistanceResult: [[Double]]?
+    @Published var pendingDistanceMetric: StatisticsEngine.DistanceMetric?
+    @Published var pendingScatterPlotData: [(x: Double, y: Double)]?
+    @Published var pendingScatterPlotXLabel: String = ""
+    @Published var pendingScatterPlotYLabel: String = ""
+    @Published var pendingScatterPlotTitle: String = ""
+    @Published var pendingDescriptiveStatistics: DescriptiveStatistics?
+    
+    // Flag to show result popup
+    @Published var showResultPopup: Bool = false
+    @Published var pendingResultType: OutputItemType?
+    
     private var selectionStart: (row: Int, col: Int)?
     
     func startSelection(row: Int, col: Int) {
@@ -276,9 +299,9 @@ class DataFrame: ObservableObject {
     @Published var currentStatistics: DescriptiveStatistics?
     @Published var correlationResult: StatisticsEngine.CorrelationResult?
     private let statisticsEngine = StatisticsEngine()
+    private let transformationEngine = TransformationEngine()
     
     func calculateStatisticsForSelection() {
-        // ... (existing code) ...
         var targetCol: Int?
         
         switch selection {
@@ -297,11 +320,9 @@ class DataFrame: ObservableObject {
         
         let numericValues = getNumericValues(for: col)
         if !numericValues.isEmpty {
-            currentStatistics = statisticsEngine.calculateDescriptiveStatistics(for: numericValues)
-            // Clear correlation result when running descriptive stats
-            correlationResult = nil
-        } else {
-            currentStatistics = nil
+            pendingDescriptiveStatistics = statisticsEngine.calculateDescriptiveStatistics(for: numericValues)
+            pendingResultType = .descriptiveStatistics
+            showResultPopup = true
         }
     }
     
@@ -339,8 +360,9 @@ class DataFrame: ObservableObject {
             }
             
             if !cleanData.isEmpty && !cleanData[0].isEmpty {
-                correlationResult = statisticsEngine.calculateCorrelationMatrix(data: cleanData, variables: variables, method: method, testType: testType)
-                currentStatistics = nil
+                pendingCorrelationResult = statisticsEngine.calculateCorrelationMatrix(data: cleanData, variables: variables, method: method, testType: testType)
+                pendingResultType = .correlation
+                showResultPopup = true
             }
             
         } else {
@@ -399,8 +421,9 @@ class DataFrame: ObservableObject {
                 }
             }
             
-            correlationResult = StatisticsEngine.CorrelationResult(matrix: matrix, variables: variables, significant: significant, method: method, controlVariables: nil, testType: testType)
-            currentStatistics = nil
+            pendingCorrelationResult = StatisticsEngine.CorrelationResult(matrix: matrix, variables: variables, significant: significant, method: method, controlVariables: nil, testType: testType, n: rowCount)
+            pendingResultType = .correlation
+            showResultPopup = true
         }
     }
     
@@ -466,9 +489,9 @@ class DataFrame: ObservableObject {
             ))
         }
         
-        distributionResults = results
-        currentStatistics = nil
-        correlationResult = nil
+        pendingDistributionResults = results
+        pendingResultType = .distribution
+        showResultPopup = true
     }
     
     // MARK: - Partial Correlation
@@ -512,13 +535,9 @@ class DataFrame: ObservableObject {
             dataMatrix.append(colData)
         }
         
-        partialCorrelationResult = statisticsEngine.calculatePartialCorrelations(data: dataMatrix, variables: variables, controls: controls)
-        
-        // Clear others
-        currentStatistics = nil
-        correlationResult = nil
-        distributionResults = nil
-        distanceResult = nil
+        pendingPartialCorrelationResult = statisticsEngine.calculatePartialCorrelations(data: dataMatrix, variables: variables, controls: controls)
+        pendingResultType = .partialCorrelation
+        showResultPopup = true
     }
     
     // MARK: - Distances
@@ -561,12 +580,10 @@ class DataFrame: ObservableObject {
         distanceResult = statisticsEngine.calculateDistances(data: dataMatrix, metric: metric)
         distanceMetric = metric
         
-        // Clear others
-        currentStatistics = nil
-        correlationResult = nil
-        distributionResults = nil
-        partialCorrelationResult = nil
-        linearRegressionResult = nil
+        pendingDistanceResult = distanceResult
+        pendingDistanceMetric = metric
+        pendingResultType = .distances
+        showResultPopup = true
     }
     
     // MARK: - Linear Regression
@@ -631,11 +648,294 @@ class DataFrame: ObservableObject {
         linearRegressionIndependents = independents
         linearRegressionOptions = options
         
-        // Clear others
-        currentStatistics = nil
-        correlationResult = nil
-        distributionResults = nil
-        partialCorrelationResult = nil
-        distanceResult = nil
+        pendingLinearRegressionResult = linearRegressionResult
+        pendingLinearRegressionDependent = dependent
+        pendingLinearRegressionIndependents = independents
+        pendingLinearRegressionOptions = options
+        pendingResultType = .linearRegression
+        showResultPopup = true
+    }
+    
+    // MARK: - Transformations
+    
+    func getColumnValues(header: String) -> [String] {
+        guard let colIndex = headers.firstIndex(of: header) else { return [] }
+        return (0..<rowCount).map { getCell(row: $0, col: colIndex) }
+    }
+    
+    func getRowData() -> [[String: String]] {
+        var result: [[String: String]] = []
+        for r in 0..<rowCount {
+            var rowDict: [String: String] = [:]
+            for (c, header) in headers.enumerated() {
+                rowDict[header] = getCell(row: r, col: c)
+            }
+            result.append(rowDict)
+        }
+        return result
+    }
+    
+    func addOrUpdateColumn(header: String, values: [String]) {
+        if let colIndex = headers.firstIndex(of: header) {
+            // Update existing
+            for (r, val) in values.enumerated() {
+                if r < rowCount {
+                    updateCell(row: r, col: colIndex, value: val)
+                }
+            }
+            // Update type
+            detectColumnType(col: colIndex)
+        } else {
+            // Add new
+            let newColIndex = colCount
+            headers.append(header)
+            colCount += 1
+            columnTypes.append(.nominal)
+            
+            for (r, val) in values.enumerated() {
+                if r < rowCount {
+                    data.append(Cell(value: val, row: r, col: newColIndex))
+                }
+            }
+            
+            // Fill remaining rows if any
+            if values.count < rowCount {
+                for r in values.count..<rowCount {
+                    data.append(Cell(value: "", row: r, col: newColIndex))
+                }
+            }
+            
+            detectColumnType(col: newColIndex)
+        }
+    }
+    
+    private func detectColumnType(col: Int) {
+        let columnValues = data.filter { $0.col == col }.map { $0.value }
+        let nonEmptyValues = columnValues.filter { !$0.isEmpty }
+        
+        if nonEmptyValues.isEmpty {
+            columnTypes[col] = .nominal
+            return
+        }
+        
+        let isNumeric = nonEmptyValues.allSatisfy { Double($0) != nil }
+        columnTypes[col] = isNumeric ? .ratio : .nominal
+    }
+    
+    // Wrapper methods for TransformationEngine
+    
+    func computeVariable(target: String, rules: [TransformationEngine.ConditionalRule], elseValue: String) {
+        let rowData = getRowData()
+        let result = transformationEngine.computeNestedIf(data: rowData, rules: rules, elseValue: elseValue)
+        addOrUpdateColumn(header: target, values: result)
+    }
+    
+    func recodeVariable(source: String, target: String, method: TransformationEngine.RecodeMethod) {
+        let values = getColumnValues(header: source)
+        let result = transformationEngine.recode(data: values, method: method)
+        addOrUpdateColumn(header: target, values: result)
+    }
+    
+    func standardizeVariable(source: String, target: String, method: TransformationEngine.StandardizationMethod) {
+        let values = getColumnValues(header: source)
+        
+        var numericBuffer = [Double]()
+        var indices = [Int]()
+        
+        for (i, val) in values.enumerated() {
+            if let d = Double(val) {
+                numericBuffer.append(d)
+                indices.append(i)
+            }
+        }
+        
+        guard !numericBuffer.isEmpty else { return }
+        
+        let transformed = transformationEngine.standardize(data: numericBuffer, method: method)
+        
+        // Create full result column
+        var result = [String](repeating: "", count: rowCount)
+        
+        for (i, val) in transformed.enumerated() {
+            let originalIndex = indices[i]
+            result[originalIndex] = String(format: "%.4f", val)
+        }
+        
+    }
+    
+    // MARK: - Chart Builder
+    
+    @Published var scatterPlotData: [(x: Double, y: Double)]?
+    @Published var scatterPlotXLabel: String = ""
+    @Published var scatterPlotYLabel: String = ""
+    @Published var scatterPlotTitle: String = ""
+    
+    func runScatterPlot(x: String, y: String, title: String = "") {
+        let data = getPairedNumericValues(xHeader: x, yHeader: y)
+        scatterPlotData = data
+        scatterPlotXLabel = x
+        scatterPlotYLabel = y
+        scatterPlotTitle = title
+        
+        pendingScatterPlotData = data
+        pendingScatterPlotXLabel = x
+        pendingScatterPlotYLabel = y
+        pendingScatterPlotTitle = title
+        pendingResultType = .scatterPlot
+        showResultPopup = true
+    }
+    
+    func getPairedNumericValues(xHeader: String, yHeader: String) -> [(Double, Double)] {
+        guard let xCol = headers.firstIndex(of: xHeader),
+              let yCol = headers.firstIndex(of: yHeader) else { return [] }
+        
+        var result: [(Double, Double)] = []
+        
+        for r in 0..<rowCount {
+            if let xVal = Double(getCell(row: r, col: xCol)),
+               let yVal = Double(getCell(row: r, col: yCol)) {
+                result.append((xVal, yVal))
+            }
+        }
+        
+        return result
+    }
+    
+    // MARK: - Output Management
+    
+    /// Adds the current pending result to the output collection
+    func addPendingResultToOutput() {
+        guard let resultType = pendingResultType else { return }
+        
+        switch resultType {
+        case .descriptiveStatistics:
+            if let stats = pendingDescriptiveStatistics {
+                let item = OutputItem(
+                    type: .descriptiveStatistics,
+                    timestamp: Date(),
+                    title: "Descriptive Statistics",
+                    data: OutputItem.DescriptiveData(stats: stats)
+                )
+                outputCollection.addItem(item)
+                
+                // Also set as current for InspectorView compatibility
+                currentStatistics = stats
+            }
+            
+        case .correlation:
+            if let result = pendingCorrelationResult {
+                let item = OutputItem(
+                    type: .correlation,
+                    timestamp: Date(),
+                    title: "Bivariate Correlation",
+                    data: OutputItem.CorrelationData(result: result)
+                )
+                outputCollection.addItem(item)
+                correlationResult = result
+            }
+            
+        case .partialCorrelation:
+            if let result = pendingPartialCorrelationResult {
+                let item = OutputItem(
+                    type: .partialCorrelation,
+                    timestamp: Date(),
+                    title: "Partial Correlation",
+                    data: OutputItem.CorrelationData(result: result)
+                )
+                outputCollection.addItem(item)
+                partialCorrelationResult = result
+            }
+            
+        case .distribution:
+            if let results = pendingDistributionResults {
+                let item = OutputItem(
+                    type: .distribution,
+                    timestamp: Date(),
+                    title: "Distribution Analysis",
+                    data: OutputItem.DistributionData(results: results)
+                )
+                outputCollection.addItem(item)
+                distributionResults = results
+            }
+            
+        case .distances:
+            if let matrix = pendingDistanceResult, let metric = pendingDistanceMetric {
+                let item = OutputItem(
+                    type: .distances,
+                    timestamp: Date(),
+                    title: "Distance Matrix",
+                    data: OutputItem.DistanceData(matrix: matrix, metric: metric)
+                )
+                outputCollection.addItem(item)
+                distanceResult = matrix
+                distanceMetric = metric
+            }
+            
+        case .linearRegression:
+            if let result = pendingLinearRegressionResult,
+               let dependent = pendingLinearRegressionDependent,
+               let independents = pendingLinearRegressionIndependents,
+               let options = pendingLinearRegressionOptions {
+                let item = OutputItem(
+                    type: .linearRegression,
+                    timestamp: Date(),
+                    title: "Linear Regression",
+                    data: OutputItem.LinearRegressionData(
+                        result: result,
+                        dependent: dependent,
+                        independents: independents,
+                        options: options
+                    )
+                )
+                outputCollection.addItem(item)
+                linearRegressionResult = result
+                linearRegressionDependent = dependent
+                linearRegressionIndependents = independents
+                linearRegressionOptions = options
+            }
+            
+        case .scatterPlot:
+            if let data = pendingScatterPlotData {
+                let item = OutputItem(
+                    type: .scatterPlot,
+                    timestamp: Date(),
+                    title: pendingScatterPlotTitle.isEmpty ? "Scatter Plot" : pendingScatterPlotTitle,
+                    data: OutputItem.ScatterPlotData(
+                        data: data,
+                        title: pendingScatterPlotTitle,
+                        xLabel: pendingScatterPlotXLabel,
+                        yLabel: pendingScatterPlotYLabel
+                    )
+                )
+                outputCollection.addItem(item)
+                scatterPlotData = data
+                scatterPlotXLabel = pendingScatterPlotXLabel
+                scatterPlotYLabel = pendingScatterPlotYLabel
+                scatterPlotTitle = pendingScatterPlotTitle
+            }
+        }
+        
+        // Clear pending state
+        clearPendingResults()
+    }
+    
+    /// Clears all pending results without adding to output
+    func clearPendingResults() {
+        pendingCorrelationResult = nil
+        pendingDistributionResults = nil
+        pendingPartialCorrelationResult = nil
+        pendingLinearRegressionResult = nil
+        pendingLinearRegressionDependent = nil
+        pendingLinearRegressionIndependents = nil
+        pendingLinearRegressionOptions = nil
+        pendingDistanceResult = nil
+        pendingDistanceMetric = nil
+        pendingScatterPlotData = nil
+        pendingScatterPlotXLabel = ""
+        pendingScatterPlotYLabel = ""
+        pendingScatterPlotTitle = ""
+        pendingDescriptiveStatistics = nil
+        pendingResultType = nil
+        showResultPopup = false
     }
 }

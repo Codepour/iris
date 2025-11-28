@@ -262,6 +262,7 @@ class StatisticsEngine {
         let method: CorrelationMethod
         let controlVariables: [String]?
         let testType: SignificanceTestType
+        let n: Int
     }
     
     func calculateCorrelationMatrix(data: [[Double]], variables: [String], method: CorrelationMethod, testType: SignificanceTestType) -> CorrelationResult? {
@@ -298,7 +299,7 @@ class StatisticsEngine {
             }
         }
         
-        return CorrelationResult(matrix: matrix, variables: variables, significant: significant, method: method, controlVariables: nil, testType: testType)
+        return CorrelationResult(matrix: matrix, variables: variables, significant: significant, method: method, controlVariables: nil, testType: testType, n: numSamples)
     }
     
     func calculatePearsonCorrelation(x: [Double], y: [Double]) -> Double {
@@ -535,16 +536,16 @@ class StatisticsEngine {
             resultSig.append(Array(significant[i][0..<numVars]))
         }
         
-        return CorrelationResult(matrix: resultMatrix, variables: variables, significant: resultSig, method: .pearson, controlVariables: controls, testType: .twoTailed)
+        return CorrelationResult(matrix: resultMatrix, variables: variables, significant: resultSig, method: .pearson, controlVariables: controls, testType: .twoTailed, n: numSamples)
     }
     
     // MARK: - Distances
     
-    enum DistanceMetric {
-        case euclidean
-        case squaredEuclidean
-        case manhattan
-        case chebyshev
+    enum DistanceMetric: String {
+        case euclidean = "Euclidean"
+        case squaredEuclidean = "Squared Euclidean"
+        case manhattan = "Manhattan"
+        case chebyshev = "Chebyshev"
     }
     
     func calculateDistances(data: [[Double]], metric: DistanceMetric) -> [[Double]]? {

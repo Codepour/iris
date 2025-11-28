@@ -13,43 +13,49 @@ struct CorrelationConfigView: View {
     @State private var significanceTest: StatisticsEngine.SignificanceTestType = .twoTailed
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 0) {
+            // Header
             HStack {
                 Text("Bivariate Correlations")
                     .font(.headline)
                 Spacer()
             }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
             
-            // Variables List
-            VStack(alignment: .leading) {
-                Text("Variables")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                List(dataFrame.headers, id: \.self) { header in
-                    HStack {
-                        Text(header)
-                        Spacer()
-                        if selectedVariables.contains(header) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.blue)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if selectedVariables.contains(header) {
-                            selectedVariables.remove(header)
-                        } else {
-                            selectedVariables.insert(header)
-                        }
-                    }
-                }
-                .frame(minHeight: 150)
-                .border(Color.gray.opacity(0.2))
-            }
+            Divider()
             
+            // Content
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    // Variables List
+                    VStack(alignment: .leading) {
+                        Text("Variables")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        List(dataFrame.headers, id: \.self) { header in
+                            HStack {
+                                Text(header)
+                                Spacer()
+                                if selectedVariables.contains(header) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if selectedVariables.contains(header) {
+                                    selectedVariables.remove(header)
+                                } else {
+                                    selectedVariables.insert(header)
+                                }
+                            }
+                        }
+                        .frame(minHeight: 150)
+                        .border(Color.gray.opacity(0.2))
+                    }
+                    
                     // Coefficients
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Coefficients")
@@ -95,10 +101,12 @@ struct CorrelationConfigView: View {
                         .pickerStyle(.radioGroup)
                     }
                 }
+                .padding()
             }
             
-            Spacer()
+            Divider()
             
+            // Footer
             HStack {
                 Button("Cancel", action: onCancel)
                     .keyboardShortcut(.cancelAction)
@@ -113,9 +121,11 @@ struct CorrelationConfigView: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(selectedVariables.count < 2)
             }
-            .padding(.top)
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
         }
-        .padding()
+        .frame(width: OutputSizing.configPopupWidth)
+        .frame(minHeight: OutputSizing.configPopupMinHeight, maxHeight: OutputSizing.configPopupMaxHeight)
     }
     
     private func runCorrelation() {
